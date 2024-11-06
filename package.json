@@ -1,11 +1,14 @@
 {
-  "type": "module", 
+  "type": "module",
   "scripts": {
     "start": "vercel dev",
     "deploy": "vercel"
   },
   "dependencies": {
-    "hono": "^4.4.2"
+    "hono": "^4.4.2",
+    "@sparticuz/chromium": "^130.0.0",
+    "puppeteer": "^23.7.0",
+    "puppeteer-core": "^23.7.0"
   },
   "devDependencies": {
     "vercel": "^32.4.1"
