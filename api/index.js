@@ -174,7 +174,7 @@ app.post("/draft-schedule/print", (c) => {
       content: `
         @page {
           size: A4 landscape;
-          margin: 0.4in;
+          margin: 0.2in;
         }
         body {
           margin: 0;
