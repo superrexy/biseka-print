@@ -4,6 +4,10 @@ import { stream } from "hono/streaming";
 import { handle } from "hono/vercel";
 import puppeteerCore from "puppeteer-core";
 
+export const config = {
+  maxDuration: 150,
+};
+
 const app = new Hono().basePath("/api");
 
 app.get("/", (c) => {
@@ -12,12 +16,30 @@ app.get("/", (c) => {
 
 app.post("/draft-schedule/print", (c) => {
   return stream(c, async (stream) => {
+    chromium.setHeadlessMode = true;
+    chromium.setGraphicsMode = false;
+
+    const chromeArgs = [
+      '--font-render-hinting=none', // Improves font-rendering quality and spacing
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-gpu',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--disable-animations',
+      '--disable-background-timer-throttling',
+      '--disable-restore-session-state',
+      '--disable-web-security', // Only if necessary, be cautious with security implications
+      '--single-process', // Be cautious as this can affect stability in some environments
+    ];
+    
     let browser;
     browser = await puppeteerCore.launch({
-      args: chromium.args,
+      args: chromeArgs,
       headless: chromium.headless,
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
+      ignoreHTTPSErrors: true,
     });
 
     const page = await browser.newPage();
@@ -47,95 +69,17 @@ app.post("/draft-schedule/print", (c) => {
     if (!body.value) errors.push({ value: "Value is required" });
     if (!body.work_type) errors.push({ work_type: "Work Type is required" });
 
-    const formData = new FormData();
-    formData.append("owner", body.owner);
-    formData.append("project", body.project);
-    formData.append("location", body.location);
-    formData.append("year", body.year);
-
-    if (body.min_1_1) {
-      for (let i = 0; i < body.min_1_1.length; i++) {
-        formData.append("min1_1[]", body.min_1_1[i]);
+    const formData = new URLSearchParams();
+    for (const key in body) {
+      if (Array.isArray(body[key])) {
+        body[key].forEach((value) => {
+          formData.append(`${key}[]`, value);
+        });
+      } else {
+        formData.append(key, body[key]);
       }
     }
 
-    if (body.min_2_1) {
-      for (let i = 0; i < body.min_2_1.length; i++) {
-        formData.append("min2_1[]", body.min_2_1[i]);
-      }
-    }
-
-    if (body.min_3_1) {
-      for (let i = 0; i < body.min_3_1.length; i++) {
-        formData.append("min3_1[]", body.min_3_1[i]);
-      }
-    }
-
-    if (body.min_4_1) {
-      for (let i = 0; i < body.min_4_1.length; i++) {
-        formData.append("min4_1[]", body.min_4_1[i]);
-      }
-    }
-
-    if (body.min_5_1) {
-      for (let i = 0; i < body.min_5_1.length; i++) {
-        formData.append("min5_1[]", body.min_5_1[i]);
-      }
-    }
-
-    if (body.min_1_2) {
-      for (let i = 0; i < body.min_1_2.length; i++) {
-        formData.append("min1_2[]", body.min_1_2[i]);
-      }
-    }
-
-    if (body.min_2_2) {
-      for (let i = 0; i < body.min_2_2.length; i++) {
-        formData.append("min2_2[]", body.min_2_2[i]);
-      }
-    }
-
-    if (body.min_3_2) {
-      for (let i = 0; i < body.min_3_2.length; i++) {
-        formData.append("min3_2[]", body.min_3_2[i]);
-      }
-    }
-
-    if (body.min_4_2) {
-      for (let i = 0; i < body.min_4_2.length; i++) {
-        formData.append("min4_2[]", body.min_4_2[i]);
-      }
-    }
-
-    if (body.min_5_2) {
-      for (let i = 0; i < body.min_5_2.length; i++) {
-        formData.append("min5_2[]", body.min_5_2[i]);
-      }
-    }
-
-    if (body.month1) {
-      for (let i = 0; i < body.month1.length; i++) {
-        formData.append("month1", body.month1);
-      }
-    }
-
-    if (body.month2) {
-      for (let i = 0; i < body.month2.length; i++) {
-        formData.append("month2", body.month2);
-      }
-    }
-
-    if (body.value) {
-      for (let i = 0; i < body.value.length; i++) {
-        formData.append("value[]", body.value[i]);
-      }
-    }
-
-    if (body.work_type) {
-      for (let i = 0; i < body.work_type.length; i++) {
-        formData.append("work_type[]", body.work_type[i]);
-      }
-    }
 
     if (errors.length > 0) {
       return c.json({ errors }, 400);
@@ -158,6 +102,9 @@ app.post("/draft-schedule/print", (c) => {
     });
 
     const url = "https://app.bisekas.com/draft-scehdule/download";
+      
+    await page.emulateMediaType('print')
+      
     await page.goto(url, { waitUntil: "domcontentloaded" });
 
     await page.evaluate(async () => {
